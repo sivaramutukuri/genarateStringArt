@@ -1,0 +1,9 @@
+Flask
+flask-cors
+fastapi
+uvicorn
+firebase-admin
+opencv-python
+numpy
+Pillow
+requests
