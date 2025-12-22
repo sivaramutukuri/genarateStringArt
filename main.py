@@ -1,3 +1,4 @@
+import os
 from flask import Flask, jsonify
 from flask_cors import CORS
 
@@ -8,11 +9,8 @@ app = Flask(__name__)
 CORS(app)
 
 
-# Initialize Firebase on startup
-initialize_firebase(
-    credentials_path='serviceAccountKey.json',
-    storage_bucket='your-project-id.appspot.com'  # Replace with your bucket
-)
+initialize_firebase(storage_bucket="your-project-id.appspot.com")
+
 
 
 @app.get("/")

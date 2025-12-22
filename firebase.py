@@ -1,5 +1,6 @@
 
 
+import os
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from typing import Dict, List, Any, Optional
@@ -7,29 +8,35 @@ import cv2
 import numpy as np
 from datetime import datetime
 
-
-# Initialize Firebase (do this once at app startup)
-def initialize_firebase(credentials_path: str = 'serviceAccountKey.json', 
-                       storage_bucket: str = None):
+def initialize_firebase(storage_bucket: str = None):
     
     try:
         if not firebase_admin._apps:
-            cred = credentials.Certificate(credentials_path)
-            
+            # Read service account JSON from environment variable
+            service_account_info = os.environ.get("FIREBASE_SERVICE_ACCOUNT")
+            if not service_account_info:
+                raise Exception("Environment variable FIREBASE_SERVICE_ACCOUNT not set")
+
+            # Parse JSON string
+            cred_dict = json.loads(service_account_info)
+            cred = credentials.Certificate(cred_dict)
+
+            # Initialize app with optional storage bucket
             if storage_bucket:
                 firebase_admin.initialize_app(cred, {
                     'storageBucket': storage_bucket
                 })
             else:
                 firebase_admin.initialize_app(cred)
-            
+
             print("✅ Firebase initialized successfully")
         else:
             print("✅ Firebase already initialized")
-            
+
     except Exception as e:
         print(f"❌ Firebase initialization failed: {e}")
         raise
+
 
 
 # Get Firebase instances
