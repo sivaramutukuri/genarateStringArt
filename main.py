@@ -1,33 +1,48 @@
-import os
-from flask import Flask, jsonify
-from flask_cors import CORS
+from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from firebase_manager import FirebaseManager
+from processor import StringArtProcessor
 
+load_dotenv()
+app = FastAPI(title="String Art API")
 
-from firebase import initialize_firebase
-from v1 import startGenarate
+# Setup CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-app = Flask(__name__)
-CORS(app)
+# Initialize Manager
+firebase_manager = FirebaseManager()
 
-load_dotenv()  # loads variables from .env file
-
-
-storage_bucket = os.environ.get("FIREBASE_STORAGE_BUCKET")
-
-initialize_firebase(storage_bucket=storage_bucket)
+def run_processor_task(art_id: str):
+    processor = StringArtProcessor(art_id, firebase_manager)
+    processor.process()
 
 @app.get("/")
-def read_root():
-    return {"message": "Hello String Art APIS"}
+async def root():
+    return {"status": "online", "engine": "FastAPI"}
 
-
-
-@app.post("/generate/<art_id>")
-def generate_string_art(art_id):
-    startGenarate(art_id)
-
+@app.post("/generate/{art_id}", status_code=202)
+async def generate_art(art_id: str, background_tasks: BackgroundTasks):
+    art = firebase_manager.get_art(art_id)
+    if not art:
+        raise HTTPException(status_code=404, detail="Art ID not found in Firestore")
+    
+    # Run long-running process in background
+    background_tasks.add_task(run_processor_task, art_id)
+    
+    return {
+        "success": True, 
+        "art_id": art_id, 
+        "message": "Processing started in background"
+    }
 
 if __name__ == "__main__":
+    import uvicorn
+    import os
     port = int(os.environ.get("PORT", 5000))
-    app.run(debug=True, host="0.0.0.0", port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port)

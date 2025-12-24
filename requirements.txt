@@ -1,10 +1,31 @@
-Flask
-flask-cors
+# Flask
+# flask-cors
+# fastapi
+# uvicorn
+# firebase-admin
+# opencv-python
+# numpy
+# Pillow
+# requests
+# python-dotenv
+
+
+# Web Framework
 fastapi
 uvicorn
-firebase-admin
-opencv-python
+python-multipart
+python-dotenv
+
+# Image Processing & Math
 numpy
+opencv-python-headless
 Pillow
 requests
-python-dotenv
+
+# Firebase & Cloud
+firebase-admin
+google-cloud-firestore
+google-cloud-storage
+
+# Type Hinting & Extras
+pydantic
