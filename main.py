@@ -18,6 +18,7 @@ supabaseService = SupabaseService()
 # -------------------- ROUTES --------------------
 
 @app.get("/")
+@app.head("/")
 def root():
     return {"status": "online"}
 
