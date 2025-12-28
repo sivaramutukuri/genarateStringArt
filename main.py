@@ -1,48 +1,87 @@
-from fastapi import FastAPI, BackgroundTasks, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+import os
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from dotenv import load_dotenv
-from firebase_manager import FirebaseManager
-from processor import StringArtProcessor
+import uvicorn
 
+from models.device_model import ArtProgressRequest, DeviceCreate
+from processer import StringArtProcessor
+from supabase_manager import SupabaseService
+
+# Load environment variables
 load_dotenv()
-app = FastAPI(title="String Art API")
 
-# Setup CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app = FastAPI()
 
-# Initialize Manager
-firebase_manager = FirebaseManager()
+supabaseService = SupabaseService()
 
-def run_processor_task(art_id: str):
-    processor = StringArtProcessor(art_id, firebase_manager)
-    processor.process()
+
+# -------------------- ROUTES --------------------
 
 @app.get("/")
-async def root():
-    return {"status": "online", "engine": "FastAPI"}
+def root():
+    return {"status": "online"}
 
-@app.post("/generate/{art_id}", status_code=202)
-async def generate_art(art_id: str, background_tasks: BackgroundTasks):
-    art = firebase_manager.get_art(art_id)
-    if not art:
-        raise HTTPException(status_code=404, detail="Art ID not found in Firestore")
     
-    # Run long-running process in background
-    background_tasks.add_task(run_processor_task, art_id)
+@app.post("/generate/{artId}", status_code=202)
+async def generate_art(artId: str, background_tasks: BackgroundTasks):
     
-    return {
-        "success": True, 
-        "art_id": art_id, 
-        "message": "Processing started in background"
-    }
+    background_tasks.add_task(run_processor_task, artId)
+    return {"message": "Processing started", "artId": artId}
+
+# @app.post("/upload", status_code=202)
+# async def generate_art():
+    
+#   return  supabaseService.uploadImg('hus.png')
+
+
+def run_processor_task(art_id: str):
+    processor = StringArtProcessor(art_id)
+    processor.process()
+
 
 if __name__ == "__main__":
-    import uvicorn
-    import os
     port = int(os.environ.get("PORT", 5000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+
+
+# import os
+# from fastapi import BackgroundTasks, FastAPI, HTTPException
+# from dotenv import load_dotenv
+# import uvicorn
+
+# from models.device_model import ArtProgressRequest, DeviceCreate
+# from processer import StringArtProcessor
+# from supabase_manager import SupabaseService
+
+# # Load environment variables
+# load_dotenv()
+
+# app = FastAPI()
+
+# supabaseService = SupabaseService()
+
+
+
+# # -------------------- ROUTES --------------------
+
+# @app.get("/")
+# def root():
+#     return {"status": "online"}
+
+    
+# @app.post("/generate/{artId}", status_code=202)
+# async def generate_art(artId: str, background_tasks: BackgroundTasks):
+
+#         if not artId:
+#             raise HTTPException(status_code=404, detail="Art ID not found in Firestore")
+        
+#         background_tasks.add_task(run_processor_task, artId)
+
+# def run_processor_task(art_id: str):
+#     processor = StringArtProcessor(art_id)
+#     processor.process()
+
+# if __name__ == "__main__":
+#     port = int(os.environ.get("PORT", 5000))
+#     uvicorn.run(app, host="0.0.0.0", port=port)
