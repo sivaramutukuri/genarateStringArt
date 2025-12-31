@@ -5,11 +5,11 @@ import numpy as np
 import math
 from PIL import Image
 import cv2
-import requests  # Fixed import
+# import requests  # Fixed import
 
 from firebase_service import FirebaseService
-from models.device_model import ArtProgressRequest, ArtResponse, ArtStatus
-from supabase_manager import SupabaseService
+from models.device_model import  ArtResponse, ArtStatus
+# from supabase_manager import SupabaseService
 
 
 # supabaseService = SupabaseService()

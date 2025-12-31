@@ -13,7 +13,7 @@ load_dotenv()
 
 app = FastAPI()
 
-supabaseService = SupabaseService()
+# supabaseService = SupabaseService()
 firebaseService = FirebaseService()
 
 
