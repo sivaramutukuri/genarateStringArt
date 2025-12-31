@@ -4,9 +4,9 @@ from dotenv import load_dotenv
 import uvicorn
 
 from firebase_service import FirebaseService
-from models.device_model import ArtProgressRequest, ArtResponse, DeviceCreate
+from models.device_model import  ArtResponse, DeviceCreate
 from processer import StringArtProcessor
-from supabase_manager import SupabaseService
+# from supabase_manager import SupabaseService
 
 # Load environment variables
 load_dotenv()
