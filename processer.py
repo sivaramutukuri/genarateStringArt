@@ -7,29 +7,32 @@ from PIL import Image
 import cv2
 import requests  # Fixed import
 
-from models.device_model import ArtProgressRequest
+from firebase_service import FirebaseService
+from models.device_model import ArtProgressRequest, ArtResponse, ArtStatus
 from supabase_manager import SupabaseService
 
 
-supabaseService = SupabaseService()
+# supabaseService = SupabaseService()
+firebaseService = FirebaseService()
 
 
 class StringArtProcessor:
     def __init__(self, artID):
-        self.data = supabaseService.getArt(artID)
-        if not self.data:
-            raise ValueError(f"Art with ID {artID} not found")
+        self.artID = artID
+        self.data = firebaseService.getArtRequest(artID)
+    
         
         self.Nails = []
         self.ThreadIndex = []
         self.DISPLAY = None
         self.IMG = None
-        self.sp = self.data.specifications
         
         # Create initial thread with artID
-        supabaseService.createThread(
-            ArtProgressRequest(
-                artID=artID,
+        firebaseService.updateResponce(
+            ArtStatus(
+                iteration=0,
+                progress=0,
+                threads=[],
                 message='Getting Started',
                 status='Init'
             )
@@ -45,11 +48,10 @@ class StringArtProcessor:
 
             image_url =  self.data.image
             # response = requests.get(image_url, timeout=10)
-            response = supabaseService.downloadImage(img=image_url)
+            response = firebaseService.downloadImage(img=image_url)
             
-            supabaseService.createThread(
-                ArtProgressRequest(
-                    artID=self.data.id,
+            firebaseService.updateResponce(
+                ArtStatus(
                     message='Extracting Image',
                     status='downloadImage'
                 )
@@ -64,44 +66,41 @@ class StringArtProcessor:
     def convertImage(self, image):
         """Convert image to grayscale array"""
         img = image.convert('L')
-        img = img.resize((self.sp.canvaSize, self.sp.canvaSize))
+        img = img.resize((self.data.canvaSize, self.data.canvaSize))
         
-        supabaseService.createThread(
-            ArtProgressRequest(
-                artID=self.data.id,
+        firebaseService.updateResponce(
+            ArtStatus(
                 message='Converting Into GreyScale Image',
                 status='convertImage'
             )
         )
 
         self.IMG = 255 - np.asarray(img, dtype=np.float32)
-        self.DISPLAY = np.zeros((self.sp.canvaSize, self.sp.canvaSize), dtype=np.float32)
+        self.DISPLAY = np.zeros((self.data.canvaSize, self.data.canvaSize), dtype=np.float32)
 
     def generateNails(self):
         """Generate nail positions around the circle"""
         self.Nails.clear()
-        center = self.sp.canvaSize // 2
-        radius = center - self.sp.margin
+        center = self.data.canvaSize // 2
+        radius = center - self.data.margin
         
-        supabaseService.createThread(
-            ArtProgressRequest(
-                artID=self.data.id,
+        firebaseService.updateResponce(
+            ArtStatus(
                 message='Generate nail positions around the circle',
                 status='GeneratingNails'
             )
         )
         
-        for i in range(self.sp.nailCount):
-            angle = 2 * math.pi * i / self.sp.nailCount
+        for i in range(self.data.nailCount):
+            angle = 2 * math.pi * i / self.data.nailCount
             x = int(center + radius * math.cos(angle))
             y = int(center + radius * math.sin(angle))
             self.Nails.append((x, y))
 
     def genaratePath(self):
         """Generate portrait string art"""
-        supabaseService.createThread(
-            ArtProgressRequest(
-                artID=self.data.id,
+        firebaseService.updateResponce(
+            ArtStatus(
                 message='Generating Threads',
                 status='generatePath'
             )
@@ -110,7 +109,7 @@ class StringArtProcessor:
         current_index = 0
         self.ThreadIndex = [current_index]
         
-        for iteration in range(1, self.sp.threadCount):
+        for iteration in range(1, self.data.threadCount):
             next_index, reduction = self.findNextNail(current_index)
             
             if next_index == -1 or reduction <= 0:
@@ -121,23 +120,21 @@ class StringArtProcessor:
             current_index = next_index
             
             # Update every 50 threads
-            progress = (iteration / self.sp.threadCount) * 100
+            progress = (iteration / self.data.threadCount) * 100
             if iteration % 50 == 0:
-                supabaseService.createThread(
-                    ArtProgressRequest(
-                        artID=self.data.id,
+                firebaseService.updateResponce(
+                    ArtStatus(
                         message='Generating Threads',
                         status='generatePath',
                         iteration=iteration,
-                        threads=self.ThreadIndex[-50:],
+                        threads=self.ThreadIndex,
                         progress=progress
                     )
                 )
 
         # Final update
-        supabaseService.createThread(
-            ArtProgressRequest(
-                artID=self.data.id,
+        firebaseService.updateResponce(
+            ArtStatus(
                 message='Path Generation Completed',
                 status='generatePath',
                 iteration=len(self.ThreadIndex),
@@ -156,7 +153,7 @@ class StringArtProcessor:
             if i == current_index:
                 continue
             
-            dist = min(abs(i - current_index), self.sp.nailCount - abs(i - current_index))
+            dist = min(abs(i - current_index), self.data.nailCount - abs(i - current_index))
             if dist < 3:
                 continue
             
@@ -179,13 +176,13 @@ class StringArtProcessor:
         
         penalty_after = 0
         for y, x in pixels:
-            new_value = self.DISPLAY[y, x] + self.sp.lineDarkness
+            new_value = self.DISPLAY[y, x] + self.data.lineDarkness
             diff = self.IMG[y, x] - new_value
             
             if diff >= 0:
                 penalty_after += diff
             else:
-                penalty_after += self.sp.lightnessPenalty * abs(diff)
+                penalty_after += self.data.lightnessPenalty * abs(diff)
         
         penalty_reduction = current_penalty - penalty_after
         return penalty_reduction / len(pixels)
@@ -206,7 +203,7 @@ class StringArtProcessor:
         x, y = x1, y1
         
         while True:
-            if 0 <= x < self.sp.canvaSize and 0 <= y < self.sp.canvaSize:
+            if 0 <= x < self.data.canvaSize and 0 <= y < self.data.canvaSize:
                 pixels.append((y, x))
             
             if x == x2 and y == y2:
@@ -231,7 +228,7 @@ class StringArtProcessor:
             if diff >= 0:
                 penalty += diff
             else:
-                penalty += self.sp.lightnessPenalty * abs(diff)
+                penalty += self.data.lightnessPenalty * abs(diff)
         
         return penalty
     
@@ -240,11 +237,11 @@ class StringArtProcessor:
         pixels = self.getLinePixels(p1, p2)
         
         for y, x in pixels:
-            self.DISPLAY[y, x] = min(255, self.DISPLAY[y, x] + self.sp.lineDarkness)
+            self.DISPLAY[y, x] = min(255, self.DISPLAY[y, x] + self.data.lineDarkness)
 
     def renderFinal(self):
         """Create final clean artwork"""
-        final_canvas = np.ones((self.sp.canvaSize, self.sp.canvaSize, 3), dtype=np.uint8) * 255
+        final_canvas = np.ones((self.data.canvaSize, self.data.canvaSize, 3), dtype=np.uint8) * 255
         
         # Draw all threads
         for i in range(1, len(self.ThreadIndex)):
@@ -256,12 +253,11 @@ class StringArtProcessor:
         for x, y in self.Nails:
             cv2.circle(final_canvas, (x, y), 1, (200, 200, 200), -1)
         
-        supabaseService.createThread(
-            ArtProgressRequest(
-                artID=self.data.id,
+        firebaseService.updateResponce(
+            ArtStatus(
+                iteration=len(self.ThreadIndex),
                 message='Create final clean artwork',
                 status='renderingArtwork',
-                iteration=100,
                 threads=self.ThreadIndex,
                 progress=100.0
             )
@@ -271,7 +267,7 @@ class StringArtProcessor:
         if not success:
             raise ValueError("Failed to encode image")
         
-        res = supabaseService.uploadOutputImg(buffer.tobytes())
+        res = firebaseService.uploadOutputImg(buffer.tobytes())
         return res
 
     def process(self):
@@ -281,17 +277,26 @@ class StringArtProcessor:
             self.generateNails()
             self.genaratePath()
             final_image = self.renderFinal()
-            supabaseService.completeArt(
-                data=self.ThreadIndex,
-                total=len(self.ThreadIndex),
-                img=final_image,
-                nails=self.Nails
+
+
+
+            firebaseService.updateFinalResponse(
+                ArtResponse(
+                    threadCount = len(self.ThreadIndex),
+                    threadIndex= self.ThreadIndex,
+                    nailCount= len(self.Nails),
+                    nailIndex= self.Nails,
+                    image= final_image,
+                )
             )
+            print(f"Completed : ->{self.artID}")
+            return "Completed"
+
+          
         except Exception as e:
             print(f"Processing error: {e}")
-            supabaseService.createThread(
-                ArtProgressRequest(
-                    artID=self.data.id if self.data else '',
+            firebaseService.updateResponce(
+                 ArtStatus(
                     message=f'Error: {str(e)}',
                     status='Failed'
                 )
@@ -339,22 +344,22 @@ class StringArtProcessor:
 #         def convertImage(self, image):
 #             """Convert image to grayscale array"""
 #             img = image.convert('L')
-#             img = img.resize((self.sp.canvaSize, self.sp.canvaSize))
+#             img = img.resize((self.canvaSize, self.canvaSize))
 #             supabaseService.createThread(ArtProgressRequest(message='Converting Into GreyScale Image',status='convertImage'))
 
 #             self.IMG = 255 - np.asarray(img, dtype=np.float32)
-#             self.DISPLAY = np.zeros((self.sp.canvaSize, self.sp.canvaSize), dtype=np.float32)
+#             self.DISPLAY = np.zeros((self.canvaSize, self.canvaSize), dtype=np.float32)
 
 #         def generateNails(self):
 #             """Generate nail positions around the circle"""
 #             self.Nails.clear()
-#             center = self.sp.canvaSize // 2
-#             radius = center - self.sp.margin
+#             center = self.canvaSize // 2
+#             radius = center - self.margin
 #             supabaseService.createThread(ArtProgressRequest(message='Generate nail positions around the circle',status='GenaratingNails'))
 
             
-#             for i in range(self.sp.nailCount):
-#                 angle = 2 * math.pi * i / self.sp.nailCount
+#             for i in range(self.nailCount):
+#                 angle = 2 * math.pi * i / self.nailCount
 #                 x = int(center + radius * math.cos(angle))
 #                 y = int(center + radius * math.sin(angle))
 #                 self.Nails.append((x, y))
@@ -367,7 +372,7 @@ class StringArtProcessor:
 #             current_index = 0
 #             self.ThreadIndex = [current_index]
             
-#             for iteration in range(1, self.sp.threadCount):
+#             for iteration in range(1, self.threadCount):
 #                 next_index, reduction = self.findNextNail(current_index)
                 
 #                 if next_index == -1 or reduction <= 0:
@@ -378,7 +383,7 @@ class StringArtProcessor:
 #                 current_index = next_index
                 
 #                 # Update Firestore every 50 threads
-#                 progress = (iteration / self.sp.threadCount) * 100
+#                 progress = (iteration / self.threadCount) * 100
 #                 if iteration % 50 == 0:
 #                     supabaseService.createThread(ArtProgressRequest(message='Generating Threads',status='genaratePath',count=iteration,threads=self.ThreadIndex,progress=progress,))
 #                 else :
@@ -398,7 +403,7 @@ class StringArtProcessor:
 #                 if i == current_index:
 #                     continue
                 
-#                 dist = min(abs(i - current_index), self.sp.nailCount - abs(i - current_index))
+#                 dist = min(abs(i - current_index), self.nailCount - abs(i - current_index))
 #                 if dist < 3:
 #                     continue
                 
@@ -421,13 +426,13 @@ class StringArtProcessor:
             
 #             penalty_after = 0
 #             for y, x in pixels:
-#                 new_value = self.DISPLAY[y, x] + self.sp.lineDarkness
+#                 new_value = self.DISPLAY[y, x] + self.lineDarkness
 #                 diff = self.IMG[y, x] - new_value
                 
 #                 if diff >= 0:
 #                     penalty_after += diff
 #                 else:
-#                     penalty_after += self.sp.lightnessPenalty * abs(diff)
+#                     penalty_after += self.lightnessPenalty * abs(diff)
             
 #             penalty_reduction = current_penalty - penalty_after
 #             return penalty_reduction / len(pixels)
@@ -448,7 +453,7 @@ class StringArtProcessor:
 #             x, y = x1, y1
             
 #             while True:
-#                 if 0 <= x < self.sp.canvaSize and 0 <= y < self.sp.canvaSize:
+#                 if 0 <= x < self.canvaSize and 0 <= y < self.canvaSize:
 #                     pixels.append((y, x))
                 
 #                 if x == x2 and y == y2:
@@ -472,7 +477,7 @@ class StringArtProcessor:
 #                 if diff >= 0:
 #                     penalty += diff
 #                 else:
-#                     penalty += self.sp.lightnessPenalty * abs(diff)
+#                     penalty += self.lightnessPenalty * abs(diff)
             
 #             return penalty
         
@@ -481,11 +486,11 @@ class StringArtProcessor:
 #             pixels = self.getLinePixels(p1, p2)
             
 #             for y, x in pixels:
-#                 self.DISPLAY[y, x] = min(255, self.DISPLAY[y, x] + self.sp.lineDarkness)
+#                 self.DISPLAY[y, x] = min(255, self.DISPLAY[y, x] + self.lineDarkness)
 
 #         def renderFinal(self):
 #             """Create final clean artwork"""
-#             final_canvas = np.ones((self.sp.canvaSize, self.sp.canvaSize, 3), dtype=np.uint8) * 255
+#             final_canvas = np.ones((self.canvaSize, self.canvaSize, 3), dtype=np.uint8) * 255
             
 #             # Draw all threads
 #             for i in range(1, len(self.ThreadIndex)):

@@ -2,7 +2,8 @@ fastapi
 uvicorn
 python-multipart
 python-dotenv
-supabase
+# supabase
 numpy
 opencv-python
 pillow
+firebase-admin
