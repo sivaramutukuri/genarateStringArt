@@ -98,7 +98,7 @@ class FirebaseService:
             doc_ref = self.db.collection(self.arts).document(self.artID)
             
             payload = {
-                'p_status': 'completed'
+                'p_status': 'completed',
                 'R_threadCount': request.threadCount,
                 'R_threadIndex':json.dumps(request.threadIndex),
                 'R_nailCount': request.nailCount,
