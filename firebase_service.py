@@ -41,7 +41,7 @@ class FirebaseService:
         self.bucket = storage.bucket()
         
         # Collection names
-        self.arts = "Arts"
+        self.arts = "arts"
         self.devices = "Devices"
         
         self.sp: ArtRequest = None
@@ -98,6 +98,7 @@ class FirebaseService:
             doc_ref = self.db.collection(self.arts).document(self.artID)
             
             payload = {
+                'p_status': 'Completed'
                 'R_threadCount': request.threadCount,
                 'R_threadIndex':json.dumps(request.threadIndex),
                 'R_nailCount': request.nailCount,
