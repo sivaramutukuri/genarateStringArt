@@ -40,9 +40,9 @@ class StringArtProcessor:
         
 
     def downloadImage(self):
-        IMAGEBACKET = os.getenv("IMAGEBACKET")
-        if not IMAGEBACKET:
-            raise ValueError("IMAGEBACKET environment variable not set")
+        # IMAGEBACKET = os.getenv("IMAGEBACKET")
+        # if not IMAGEBACKET:
+        #     raise ValueError("IMAGEBACKET environment variable not set")
         
         try:
 
@@ -240,18 +240,18 @@ class StringArtProcessor:
             self.DISPLAY[y, x] = min(255, self.DISPLAY[y, x] + self.data.lineDarkness)
 
     def renderFinal(self):
-        """Create final clean artwork"""
-        final_canvas = np.ones((self.data.canvaSize, self.data.canvaSize, 3), dtype=np.uint8) * 255
+        # """Create final clean artwork"""
+        # final_canvas = np.ones((self.data.canvaSize, self.data.canvaSize, 3), dtype=np.uint8) * 255
         
-        # Draw all threads
-        for i in range(1, len(self.ThreadIndex)):
-            n1 = self.Nails[self.ThreadIndex[i - 1]]
-            n2 = self.Nails[self.ThreadIndex[i]]
-            cv2.line(final_canvas, n1, n2, (0, 0, 0), 1, cv2.LINE_AA)
+        # # Draw all threads
+        # for i in range(1, len(self.ThreadIndex)):
+        #     n1 = self.Nails[self.ThreadIndex[i - 1]]
+        #     n2 = self.Nails[self.ThreadIndex[i]]
+        #     cv2.line(final_canvas, n1, n2, (0, 0, 0), 1, cv2.LINE_AA)
         
-        # Draw nails
-        for x, y in self.Nails:
-            cv2.circle(final_canvas, (x, y), 1, (200, 200, 200), -1)
+        # # Draw nails
+        # for x, y in self.Nails:
+        #     cv2.circle(final_canvas, (x, y), 1, (200, 200, 200), -1)
         
         firebaseService.updateResponce(
             ArtStatus(
@@ -263,12 +263,12 @@ class StringArtProcessor:
             )
         )
         
-        success, buffer = cv2.imencode(".png", final_canvas)
-        if not success:
-            raise ValueError("Failed to encode image")
+        # success, buffer = cv2.imencode(".png", final_canvas)
+        # if not success:
+        #     raise ValueError("Failed to encode image")
         
-        res = firebaseService.uploadOutputImg(buffer.tobytes())
-        return res
+        # res = firebaseService.uploadOutputImg(buffer.tobytes())
+        return "image"
 
     def process(self):
         try:
