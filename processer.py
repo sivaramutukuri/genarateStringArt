@@ -5,6 +5,7 @@ import numpy as np
 import math
 from PIL import Image
 import cv2
+import requests
 # import requests  # Fixed import
 
 from firebase_service import FirebaseService
@@ -131,6 +132,10 @@ class StringArtProcessor:
                         progress=progress
                     )
                 )
+            if iteration % 1000 == 0: # Keeping the Server Alive
+                url = "https://genaratestringart.onrender.com"
+                requests.get(url)
+                
 
         # Final update
         firebaseService.updateResponce(
