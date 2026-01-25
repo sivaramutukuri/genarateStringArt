@@ -14,13 +14,13 @@ from models.device_model import  ArtResponse, ArtStatus
 
 
 # supabaseService = SupabaseService()
-firebaseService = FirebaseService()
 
 
 class StringArtProcessor:
     def __init__(self, artID):
+        self.firebaseService = FirebaseService()
         self.artID = artID
-        self.data = firebaseService.getArtRequest(artID)
+        self.data = self.firebaseService.getArtRequest(artID)
     
         
         self.Nails = []
@@ -29,7 +29,7 @@ class StringArtProcessor:
         self.IMG = None
         
         # Create initial thread with artID
-        firebaseService.updateResponce(
+        self.firebaseService.updateResponce(
             ArtStatus(
                 iteration=0,
                 progress=0,
@@ -49,9 +49,9 @@ class StringArtProcessor:
 
             image_url =  self.data.image
             # response = requests.get(image_url, timeout=10)
-            response = firebaseService.downloadImage(img=image_url)
+            response = self.firebaseService.downloadImage(img=image_url)
             
-            firebaseService.updateResponce(
+            self.firebaseService.updateResponce(
                 ArtStatus(
                     message='Extracting Image',
                     status='downloadImage'
@@ -69,7 +69,7 @@ class StringArtProcessor:
         img = image.convert('L')
         img = img.resize((self.data.canvaSize, self.data.canvaSize))
         
-        firebaseService.updateResponce(
+        self.firebaseService.updateResponce(
             ArtStatus(
                 message='Converting Into GreyScale Image',
                 status='convertImage'
@@ -85,7 +85,7 @@ class StringArtProcessor:
         center = self.data.canvaSize // 2
         radius = center - self.data.margin
         
-        firebaseService.updateResponce(
+        self.firebaseService.updateResponce(
             ArtStatus(
                 message='Generate nail positions around the circle',
                 status='GeneratingNails'
@@ -100,7 +100,7 @@ class StringArtProcessor:
 
     def genaratePath(self):
         """Generate portrait string art"""
-        firebaseService.updateResponce(
+        self.firebaseService.updateResponce(
             ArtStatus(
                 message='Generating Threads',
                 status='generatePath'
@@ -123,7 +123,7 @@ class StringArtProcessor:
             # Update every 50 threads
             progress = (iteration / self.data.threadCount) * 100
             if iteration % 50 == 0:
-                firebaseService.updateResponce(
+                self.firebaseService.updateResponce(
                     ArtStatus(
                         message='Generating Threads',
                         status='generatePath',
@@ -138,7 +138,7 @@ class StringArtProcessor:
                 
 
         # Final update
-        firebaseService.updateResponce(
+        self.firebaseService.updateResponce(
             ArtStatus(
                 message='Path Generation Completed',
                 status='generatePath',
@@ -258,7 +258,7 @@ class StringArtProcessor:
         # for x, y in self.Nails:
         #     cv2.circle(final_canvas, (x, y), 1, (200, 200, 200), -1)
         
-        firebaseService.updateResponce(
+        self.firebaseService.updateResponce(
             ArtStatus(
                 iteration=len(self.ThreadIndex),
                 message='Create final clean artwork',
@@ -272,7 +272,7 @@ class StringArtProcessor:
         # if not success:
         #     raise ValueError("Failed to encode image")
         
-        # res = firebaseService.uploadOutputImg(buffer.tobytes())
+        # res = self.firebaseService.uploadOutputImg(buffer.tobytes())
         return "image"
 
     def process(self):
@@ -285,7 +285,7 @@ class StringArtProcessor:
 
 
 
-            firebaseService.updateFinalResponse(
+            self.firebaseService.updateFinalResponse(
                 ArtResponse(
                     threadCount = len(self.ThreadIndex),
                     threadIndex= self.ThreadIndex,
@@ -300,7 +300,7 @@ class StringArtProcessor:
           
         except Exception as e:
             print(f"Processing error: {e}")
-            firebaseService.updateResponce(
+            self.firebaseService.updateResponce(
                  ArtStatus(
                     message=f'Error: {str(e)}',
                     status='Failed'
