@@ -5,7 +5,7 @@ import uvicorn
 
 from firebase_service import FirebaseService
 from models.device_model import  ArtResponse, DeviceCreate
-from processer import StringArtProcessor
+from v2 import StringArtProcessor
 # from supabase_manager import SupabaseService
 
 # Load environment variables
