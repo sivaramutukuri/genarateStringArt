@@ -2,6 +2,7 @@
 import base64
 import io
 import os
+import struct
 import numpy as np
 import math
 from PIL import Image
@@ -236,15 +237,15 @@ class StringArtProcessor:
             self.generateNails()
             self.genaratePath()
 
-            byte_data = bytes(self.ThreadIndex)
+            s = ''.join(f'{v:03d}' for v in self.ThreadIndex)
+            # decoded = [int(s[i:i+3]) for i in range(0, len(s), 3)]
 
-            base64_str = base64.b64encode(byte_data).decode("utf-8")
 
 
             self.firebaseService.updateFinalResponse({
                 'nailCount':self.data.nailCount,
                 'threadCount': len(self.ThreadIndex),
-                'totalThreads': base64_str,
+                'totalThreads': s,
             })
             print(f"Completed : ->{self.artID}")
             return "Completed"
