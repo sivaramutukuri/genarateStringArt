@@ -1,4 +1,5 @@
 # processer.py
+import base64
 import io
 import os
 import numpy as np
@@ -28,37 +29,21 @@ class StringArtProcessor:
         self.DISPLAY = None
         self.IMG = None
         
-        # Create initial thread with artID
-        self.firebaseService.updateResponce(
-            ArtStatus(
-                iteration=0,
-                progress=0,
-                threads=[],
-                message='Getting Started',
-                status='Init'
-            )
-        )
-        
 
     def downloadImage(self):
-        # IMAGEBACKET = os.getenv("IMAGEBACKET")
-        # if not IMAGEBACKET:
-        #     raise ValueError("IMAGEBACKET environment variable not set")
-        
         try:
 
             image_url =  self.data.image
-            # response = requests.get(image_url, timeout=10)
-            response = self.firebaseService.downloadImage(img=image_url)
             
-            self.firebaseService.updateResponce(
-                ArtStatus(
-                    message='Extracting Image',
-                    status='downloadImage'
-                )
-            )
+            self.firebaseService.updateResponce({
+                'message': 'Downloading Image',
+                'status': 'downloadImage'
+            })
             
-            image = Image.open(io.BytesIO(response))
+            response = requests.get(image_url, timeout=30)
+            response.raise_for_status()
+            
+            image = Image.open(io.BytesIO(response.content))
             return image
         except Exception as e:
             raise Exception(f"Error Extracting Bytes {e}")
@@ -69,12 +54,10 @@ class StringArtProcessor:
         img = image.convert('L')
         img = img.resize((self.data.canvaSize, self.data.canvaSize))
         
-        self.firebaseService.updateResponce(
-            ArtStatus(
-                message='Converting Into GreyScale Image',
-                status='convertImage'
-            )
-        )
+        self.firebaseService.updateResponce({
+            'message': 'Converting to Grayscale',
+            'status': 'convertImage'
+        })
 
         self.IMG = 255 - np.asarray(img, dtype=np.float32)
         self.DISPLAY = np.zeros((self.data.canvaSize, self.data.canvaSize), dtype=np.float32)
@@ -85,12 +68,10 @@ class StringArtProcessor:
         center = self.data.canvaSize // 2
         radius = center - self.data.margin
         
-        self.firebaseService.updateResponce(
-            ArtStatus(
-                message='Generate nail positions around the circle',
-                status='GeneratingNails'
-            )
-        )
+        self.firebaseService.updateResponce({
+            'message': 'Generating Nail Positions',
+            'status': 'generatingNails'
+        })
         
         for i in range(self.data.nailCount):
             angle = 2 * math.pi * i / self.data.nailCount
@@ -100,12 +81,10 @@ class StringArtProcessor:
 
     def genaratePath(self):
         """Generate portrait string art"""
-        self.firebaseService.updateResponce(
-            ArtStatus(
-                message='Generating Threads',
-                status='generatePath'
-            )
-        )
+        self.firebaseService.updateResponce({
+            'message': 'Generating Thread Path',
+            'status': 'generatePath'
+        })
         
         current_index = 0
         self.ThreadIndex = [current_index]
@@ -123,30 +102,26 @@ class StringArtProcessor:
             # Update every 50 threads
             progress = (iteration / self.data.threadCount) * 100
             if iteration % 50 == 0:
-                self.firebaseService.updateResponce(
-                    ArtStatus(
-                        message='Generating Threads',
-                        status='generatePath',
-                        iteration=iteration,
-                        threads=self.ThreadIndex,
-                        progress=progress
-                    )
-                )
+                self.firebaseService.updateResponce({
+                    'message': f'Generating Threads  remaining)',
+                    'status': 'generatePath',
+                    'threadCount': iteration,
+                    'threads': self.ThreadIndex[-50:], 
+                    'progress': progress
+                })
             if iteration % 1000 == 0: # Keeping the Server Alive
                 url = "https://genaratestringart.onrender.com"
                 requests.get(url)
                 
 
         # Final update
-        self.firebaseService.updateResponce(
-            ArtStatus(
-                message='Path Generation Completed',
-                status='generatePath',
-                iteration=len(self.ThreadIndex),
-                threads=self.ThreadIndex,
-                progress=100.0
-            )
-        )
+        self.firebaseService.updateResponce({
+            'message': f'Path Generation Completed in s',
+            'status': 'completed',
+            'threadCount': len(self.ThreadIndex),
+            'threads': [],
+            'progress': 100.0
+        })
 
         return len(self.ThreadIndex)
     
@@ -244,59 +219,35 @@ class StringArtProcessor:
         for y, x in pixels:
             self.DISPLAY[y, x] = min(255, self.DISPLAY[y, x] + self.data.lineDarkness)
 
-    def renderFinal(self):
-        # """Create final clean artwork"""
-        # final_canvas = np.ones((self.data.canvaSize, self.data.canvaSize, 3), dtype=np.uint8) * 255
-        
-        # # Draw all threads
-        # for i in range(1, len(self.ThreadIndex)):
-        #     n1 = self.Nails[self.ThreadIndex[i - 1]]
-        #     n2 = self.Nails[self.ThreadIndex[i]]
-        #     cv2.line(final_canvas, n1, n2, (0, 0, 0), 1, cv2.LINE_AA)
-        
-        # # Draw nails
-        # for x, y in self.Nails:
-        #     cv2.circle(final_canvas, (x, y), 1, (200, 200, 200), -1)
-        
-        self.firebaseService.updateResponce(
-            ArtStatus(
-                iteration=len(self.ThreadIndex),
-                message='Create final clean artwork',
-                status='renderingArtwork',
-                threads=self.ThreadIndex,
-                progress=100.0
-            )
-        )
-        
-        # success, buffer = cv2.imencode(".png", final_canvas)
-        # if not success:
-        #     raise ValueError("Failed to encode image")
-        
-        # res = self.firebaseService.uploadOutputImg(buffer.tobytes())
-        return "image"
+    
 
     def process(self):
         try:
+
+            self.firebaseService.updateResponce({
+                    'threadCount': 0,
+                    'progress': 0,
+                    'threads': [],
+                    'message': 'Getting Started',
+                    'status': 'init'
+                })
             image = self.downloadImage()
             self.convertImage(image)
             self.generateNails()
             self.genaratePath()
-            final_image = self.renderFinal()
+
+            byte_data = bytes(self.ThreadIndex)
+
+            base64_str = base64.b64encode(byte_data).decode("utf-8")
 
 
-
-            self.firebaseService.updateFinalResponse(
-                ArtResponse(
-                    threadCount = len(self.ThreadIndex),
-                    threadIndex= self.ThreadIndex,
-                    nailCount= len(self.Nails),
-                    nailIndex= self.Nails,
-                    image= final_image,
-                )
-            )
+            self.firebaseService.updateFinalResponse({
+                'nailCount':self.data.nailCount,
+                'threadCount': len(self.ThreadIndex),
+                'totalThreads': base64_str,
+            })
             print(f"Completed : ->{self.artID}")
             return "Completed"
-
           
         except Exception as e:
             print(f"Processing error: {e}")

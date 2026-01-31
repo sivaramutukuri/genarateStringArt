@@ -1,6 +1,6 @@
 import datetime
 import json
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
@@ -64,21 +64,14 @@ class FirebaseService:
             return None
         
 
-    def updateResponce(self, request: ArtStatus):
+    def updateResponce(self, request: Dict[str,Any]):
         """Update status and append new threads to existing array"""
         try:
             doc_ref = self.db.collection(self.arts).document(self.artID)
 
-            payload = {
-                'p_threads': json.dumps(request.threads),
-                'p_iteration': request.iteration,
-                'p_status': request.status,
-                'p_message': request.message,
-                'p_progress': request.progress
-            }
-            doc_ref.set(payload, merge=True)
+            doc_ref.set({'progress':request}, merge=True)
             return True  
-            
+
         except Exception as e:
             return f"{e}" 
         
@@ -92,49 +85,19 @@ class FirebaseService:
         except Exception as e:
             return f"{e}" 
         
-    def updateFinalResponse(self, request: ArtResponse):
+    def updateFinalResponse(self, request: Dict[str,Any]):
         try:
 
             doc_ref = self.db.collection(self.arts).document(self.artID)
             
-            payload = {
-                'p_status': 'completed',
-                'R_threadCount': request.threadCount,
-                'R_threadIndex':json.dumps(request.threadIndex),
-                'R_nailCount': request.nailCount,
-                'R_nailIndex': json.dumps(request.nailIndex),
-                'R_image': request.image
+            final_data = {
+               'result' : request
             }
-
-            doc_ref.set(payload, merge=True)
+            doc_ref.set(final_data, merge=True)
             return {"success": True}
 
         except Exception as e:
             raise RuntimeError(e)
-    
-    
-    def uploadOutputImg(self, file: bytes) -> str:
-        try:
-            if not self.sp:
-                raise ValueError("No art object loaded")
-
-            timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-            file_path = f"{timestamp}.png"
-
-            blob = self.bucket.blob(file_path)
-
-            blob.upload_from_string(
-                file,
-                content_type="image/png"
-            )
-
-            blob.make_public()
-
-            return blob.public_url
-            
-        except Exception as e:
-            print(f"Error uploading image: {e}")
-            raise
     
     def downloadImage(self, img: str) -> bytes:
         try:
